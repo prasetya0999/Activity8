@@ -66,7 +66,9 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+
     public  void  bacaData(){
+        temanArrayList.clear();
         RequestQueue requestQueue = Volley.newRequestQueue(getApplicationContext());
         JsonArrayRequest jArr = new JsonArrayRequest(url_select,new Response.Listener<JSONArray>(){
             @Override

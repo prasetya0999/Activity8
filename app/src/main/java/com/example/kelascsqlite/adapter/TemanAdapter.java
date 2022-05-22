@@ -1,27 +1,42 @@
 package com.example.kelascsqlite.adapter;
 
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
+import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.PopupMenu;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.android.volley.Request;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.example.kelascsqlite.EditTeman;
 import com.example.kelascsqlite.MainActivity;
 import com.example.kelascsqlite.R;
+import com.example.kelascsqlite.app.AppController;
 import com.example.kelascsqlite.database.DBController;
 import com.example.kelascsqlite.database.Teman;
 import com.example.kelascsqlite.edit_teman;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 
 public class TemanAdapter extends RecyclerView.Adapter<TemanAdapter.TemanViewHolder> {
 
@@ -31,7 +46,6 @@ public class TemanAdapter extends RecyclerView.Adapter<TemanAdapter.TemanViewHol
     public TemanAdapter(ArrayList<Teman> listData) {
         this.listData = listData;
     }
-
     @Override
     public TemanViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         LayoutInflater layoutInf = LayoutInflater.from(parent.getContext());
@@ -42,10 +56,10 @@ public class TemanAdapter extends RecyclerView.Adapter<TemanAdapter.TemanViewHol
 
     @Override
     public void onBindViewHolder(TemanAdapter.TemanViewHolder holder, int position) {
-        String nma, tlp,id;
+        String nm, tlp,id;
 
         id = listData.get(position).getId();
-        nma = listData.get(position).getNama();
+        nm = listData.get(position).getNama();
         tlp = listData.get(position).getTelpon();
         DBController db = new DBController(control);
 
@@ -54,43 +68,95 @@ public class TemanAdapter extends RecyclerView.Adapter<TemanAdapter.TemanViewHol
         holder.namaTxt.setTextSize(20);
 
         // Set Text
-        holder.namaTxt.setText(nma);
+        holder.namaTxt.setText(nm);
         holder.telponTxt.setText(tlp);
 
         holder.cardku.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
-            public boolean onLongClick(View view) {
-                PopupMenu popupMenu = new PopupMenu(control, holder.cardku);
-                popupMenu.inflate(R.menu.popupmenu);
+            public boolean onLongClick(View v ) {
+                PopupMenu pm = new PopupMenu(v.getContext(),v);
+                pm.inflate(R.menu.popup1);
 
-                popupMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+                pm.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
                     @Override
                     public boolean onMenuItemClick(MenuItem Item) {
 
                         switch(Item.getItemId()){
                             case R.id.edit:
-                                Intent i = new Intent(control, edit_teman.class);
-                                i.putExtra("id",id);
-                                i.putExtra("nama",nma);
-                                i.putExtra("telpon",tlp);
-                                control.startActivity(i);
+                                Bundle bendel = new Bundle();
+                                bendel.putString("kunci1",id);
+                                bendel.putString("kunci2",nm);
+                                bendel.putString("kunci3",tlp);
+
+                                Intent inten = new Intent(v.getContext(), EditTeman.class);
+                                inten.putExtras(bendel);
+                                v.getContext().startActivity(inten);
                                 break;
                             case R.id.hapus:
-                                HashMap<String,String> values = new HashMap<>();
-                                values.put("id",id);
-                                db.DeleteData(values);
-                                Intent j = new Intent(control, MainActivity.class);
-                                control.startActivity(j);
+                                AlertDialog.Builder alertdb = new AlertDialog.Builder(v.getContext());
+                                alertdb.setTitle("Yakin"+nm+"akan dihapus?");
+                                alertdb.setMessage("Tekan Ya untuk menghapus");
+                                alertdb.setCancelable(false);
+                                alertdb.setPositiveButton("Ya", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialogInterface, int which)
+                                    {
+                                        HapusData(id);
+                                        Toast.makeText(v.getContext(), "Data"+id+"telah dihapus", Toast.LENGTH_LONG).show();
+                                        Intent intent = new Intent(v.getContext(),MainActivity.class);
+                                        v.getContext().startActivity(intent);
+                                    }
+                                });
+                                alertdb.setNegativeButton("Tidak", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        dialog.cancel();
+                                    }
+                                });
+                                AlertDialog adlg = alertdb.create();
+                                adlg.show();
                                 break;
                         }
                         return true;
                     }
                 });
-                popupMenu.show();
+                pm.show();
                 return false;
             }
         });
 
+    }
+    private void HapusData(final String idx){
+        String url_update = "http://10.0.2.2/umyTI/deletetm";
+        final String TAG = MainActivity.class.getSimpleName();
+        final String TAG_SUCCES = "success";
+        final int[] sukses = new int[1];
+
+        StringRequest stringReq = new StringRequest(Request.Method.POST, url_update, new Response.Listener<String>() {
+            @Override
+            public void onResponse(String response) {
+                Log.d(TAG, "Respon: " + response.toString());
+                try {
+                    JSONObject jobj = new JSONObject(response);
+                    sukses[0] = jobj.getInt(TAG_SUCCES);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Log.e(TAG,"Error: "+error.getMessage());
+            }
+        }){
+            @Override
+            protected Map<String,String> getParams(){
+                Map<String,String> params = new HashMap<>();
+                params.put("id",idx);
+                return params;
+            }
+        };
+        AppController.getInstance().addToRequestQueue(stringReq);
     }
 
     @Override
